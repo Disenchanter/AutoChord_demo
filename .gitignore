@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyo
+*.pkl
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VSCode
+.vscode/
+
+# Data/Model/Output
+*.wav
+*.mid
+*.mp3
+*.npy
+*.npz
+*.h5
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.log
+*.csv
+*.json
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.pdf
+*.svg
+*.xlsx
+*.xls
+*.zip
+*.tar
+*.tar.gz
+*.bak
+*.tmp
+*.swp
+
+# Output folders
+output/
+models_*/
+single_chords_output/
+single_chords/
+test_results*/
+legacy/
+Backups/
+
+# System
+.DS_Store
+Thumbs.db
+
+libtorch/
+JUCE/
+
+# Reaper/DAW
+*.rpp-bak
+*.rpp~
+*.lua
+
+# Env
+.env
+.env.*
+
+# Misc
+*.cache
+*.log
+*.lock
