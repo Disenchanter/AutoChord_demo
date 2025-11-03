@@ -1,12 +1,92 @@
 # 🚀 和弦识别训练完整命令集合（Windows 版本）
 
 ## 📋 目录
+0. [MIDI数据生成](#0-midi数据生成)
 1. [环境检查](#1-环境检查)
 2. [数据验证](#2-数据验证)
 3. [训练命令](#3-训练命令)
 4. [测试与预测](#4-测试与预测)
-5. [特征对比](#5-特征对比)
-6. [故障排除](#6-故障排除)
+5. [导出模型](#5-导出模型用于juce插件)
+6. [特征对比](#6-特征对比)
+7. [故障排除](#7-故障排除)
+
+---
+
+## 0. MIDI数据生成
+
+### 0.1 生成单和弦MIDI文件（推荐第一步）
+```powershell
+python generate_single_chords.py -r 10 -o single_chords
+```
+
+**参数说明**：
+- `-r 10`：每种和弦生成10个重复（带音符变化和声部对调）
+- `-o single_chords`：输出到single_chords目录
+
+**生成数据说明**：
+- **根音数量**：7个（C, D, E, F, G, A, B）
+- **和弦类型**：11种（major, minor, dim, aug, sus2, sus4, maj7, min7, dom7, dim7, hdim7）
+- **配器方案**：8种（satb, sat, atb, sa, piano, piano_bass, strings, full）
+- **总和弦组合**：7 × 11 × 8 = **616种**
+- **文件夹总数**（重复10次）：616 × 10 = **6160个**
+
+**生成目录结构示例**：
+```
+single_chords/
+  ├── C_major_satb_01/          # C大三和弦，SATB配置，第1次重复
+  │   ├── Soprano.mid
+  │   ├── Alto.mid
+  │   ├── Tenor.mid
+  │   └── Bass.mid
+  ├── C_major_satb_02/          # 相同和弦，第2次重复（不同声部排列）
+  │   ├── Soprano.mid
+  │   ├── Alto.mid
+  │   ├── Tenor.mid
+  │   └── Bass.mid
+  ├── D_min7_piano_01/          # D小七和弦，钢琴配置
+  │   ├── Piano_RH.mid
+  │   └── Piano_LH.mid
+  └── ... (共6160个文件夹)
+```
+
+**文件夹命名规则**：`根音_和弦类型_配器方案_序号`
+- 例如：`C_major_satb_01`、`G_dom7_piano_bass_05`
+
+**配器方案详细说明**：
+| 方案 | 声部组合 | 说明 |
+|------|---------|------|
+| satb | Soprano + Alto + Tenor + Bass | 四部合唱（完整） |
+| sat | Soprano + Alto + Tenor | 三部合唱（无低音） |
+| atb | Alto + Tenor + Bass | 三部合唱（无高音） |
+| sa | Soprano + Alto | 二部合唱 |
+| piano | Piano_RH + Piano_LH | 钢琴左右手 |
+| piano_bass | Piano_RH + Piano_LH + Bass | 钢琴+低音 |
+| strings | Strings + Bass | 弦乐+低音 |
+| full | Soprano + Alto + Tenor + Bass + Strings | 完整编制 |
+
+**音乐性变化机制**：
+- ✅ 智能音符省略（根据和弦重要性）
+- ✅ 音符加倍（根音、五音优先）
+- ✅ 八度调整（适应声部音域）
+- ✅ 声部对调（S-A对调、T-B对调、完全重排等）
+- ✅ 随机力度和时间微调（增加表现力）
+
+### 0.2 批量渲染MIDI为WAV（使用Reaper + Lua脚本）
+
+1. 打开Reaper DAW
+2. 加载与配器方案匹配的轨道模板（至少8轨）
+3. 运行`midi_render.lua`脚本
+4. 脚本会自动：
+   - 遍历所有MIDI文件夹
+   - 导入各声部MIDI到对应轨道
+   - 渲染混音为单个WAV文件
+   - 输出到`single_chords_output/`目录
+
+**渲染后文件命名**：与文件夹名一致，例如：
+- `C_major_satb_01.wav`
+- `D_min7_piano_01.wav`
+
+**预期WAV文件数量**：与MIDI文件夹数相同（如重复10次则6160个WAV）
 
 ---
 
@@ -65,17 +145,19 @@ python -c "from pathlib import Path; wav_dir = Path('single_chords_output'); wav
 python train_chord_recognition.py `
     --data_dir single_chords_output `
     --task root `
-    --epochs 300 `
+    --epochs 100 `
     --batch_size 32 `
     --lr 0.001 `
     --output_dir models_root_stft
 ```
 
 **预期效果**:
-- 训练样本: ~1568
-- 验证样本: ~392
-- 类别数: 7 (A, B, C, D, E, F, G)
+- 训练样本数计算：6160个WAV × 80% = **4928个**
+- 验证样本数计算：6160个WAV × 20% = **1232个**
+- 类别数: **7** (C, D, E, F, G, A, B)
 - 预期准确率: 85-95%
+
+**说明**：每个根音有880个样本（11和弦 × 8配器 × 10重复）
 
 ### 3.2 训练和弦类型识别（Chord - 11 类）
 ```powershell
@@ -89,8 +171,12 @@ python train_chord_recognition.py `
 ```
 
 **预期效果**:
-- 类别数: 14 (major, minor, dim, aug, dom7, maj7, min7, dim7, hdi, sus2, sus4, 6, 9, add9)
-- 预期准确率: 75-85%
+- 训练样本数计算：6160个WAV × 80% = **4928个**
+- 验证样本数计算：6160个WAV × 20% = **1232个**
+- 类别数: **11** (major, minor, dim, aug, sus2, sus4, maj7, min7, dom7, dim7, hdim7)
+- 预期准确率: 60-75%
+
+**说明**：每种和弦类型有560个样本（7根音 × 8配器 × 10重复）
 
 ### 3.3 训练完整和弦识别（Full - 77 类，最难）
 ```powershell
@@ -104,9 +190,13 @@ python train_chord_recognition.py `
 ```
 
 **预期效果**:
-- 类别数: 98 (7 roots × 14 chord types)
-- 预期准确率: 60-75%
+- 训练样本数计算：6160个WAV × 80% = **4928个**
+- 验证样本数计算：6160个WAV × 20% = **1232个**
+- 类别数: **77** (7 roots × 11 chord types)
+- 预期准确率: 60-70%
 - 需要更多 epochs 和更小学习率
+
+**说明**：每个完整和弦有80个样本（8配器 × 10重复）
 
 ### 3.4 使用 CQT 特征训练（最佳音乐识别效果）⭐⭐⭐
 ```powershell
@@ -131,7 +221,7 @@ python train_chord_cqt.py `
 ### 4.1 单文件预测（STFT）
 ```powershell
 python predict_chord.py `
-    --wav_file single_chords_output\C_maj_satb_0001.wav `
+    --wav_file single_chords_output\C_major_satb_01.wav `
     --model models_stft\chord_model_root.pth `
     --mappings models_stft\label_mappings_root.json
 ```
@@ -139,7 +229,7 @@ python predict_chord.py `
 ### 4.2 单文件预测（CQT）
 ```powershell
 python predict_chord_cqt.py `
-    --wav_file single_chords_output\C_maj_satb_0001.wav `
+    --wav_file single_chords_output\C_major_satb_01.wav `
     --model models_cqt\chord_model_cqt_root.pth `
     --mappings models_cqt\label_mappings_root.json
 ```
@@ -160,12 +250,54 @@ python test_model.py `
 
 ---
 
-## 5. 特征对比
+## 5. 导出模型（用于JUCE插件）
 
-### 5.1 可视化对比 STFT vs Mel vs CQT
+### 5.1 导出所有模型为TorchScript格式
+```powershell
+python export_models_for_juce.py --export_all
+```
+
+**说明**：
+- 自动查找最新的训练模型（.pth文件）
+- 转换为TorchScript格式（.pt文件）
+- 用于JUCE插件加载
+
+**输出文件**：
+- `models_root_stft/root_model.pt` - Root模型（7类）
+- `models_chord_stft/chord_model.pt` - Chord模型（11类）
+- `models_full_stft/full_model.pt` - Full模型（77类）
+
+**模型输入格式**：`[1, 1, 1025, T]`
+- 1025：原始STFT频谱bins数（FFT_SIZE/2 + 1）
+- T：时间帧数（取决于音频长度，约2秒音频为173帧）
+
+### 5.2 手动导出单个模型
+```powershell
+# 导出Root模型
+python -c "
+from export_models_for_juce import export_model
+export_model(
+    'models_root_stft/chord_model_root_xxx.pth',
+    'models_root_stft/root_model.pt',
+    num_classes=7
+)
+"
+```
+
+**验证导出**：
+```powershell
+# 检查.pt文件是否生成
+Get-ChildItem models_*_stft\*.pt
+```
+
+---
+
+## 6. 特征对比
+
+### 6.1 可视化对比 STFT vs Mel vs CQT
 ```powershell
 python compare_features.py `
-    --wav_file single_chords_output\C_maj_satb_0001.wav `
+    --wav_file single_chords_output\C_major_satb_01.wav `
     --output feature_comparison.png
 ```
 
@@ -177,7 +309,7 @@ Start-Process feature_comparison.png
 ### 5.2 自定义参数对比
 ```powershell
 python compare_features.py `
-    --wav_file single_chords_output\G_dom_satb_0001.wav `
+    --wav_file single_chords_output\G_dom7_satb_01.wav `
     --n_fft 4096 `
     --n_mels 256 `
     --n_bins 96 `
@@ -186,9 +318,9 @@ python compare_features.py `
 
 ---
 
-## 6. 故障排除
+## 7. 故障排除
 
-### 6.1 如果提示 "FFmpeg not found"
+### 7.1 如果提示 "FFmpeg not found"
 ```powershell
 # 安装 FFmpeg
 conda install -c conda-forge ffmpeg

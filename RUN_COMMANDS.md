@@ -2,43 +2,84 @@ cat << 'EOF' > RUN_COMMANDS.md
 # 🚀 和弦识别训练完整命令集合
 
 ## 📋 目录
+0. [MIDI数据生成](#0-midi数据生成)
 1. [环境检查](#1-环境检查)
 2. [数据验证](#2-数据验证)
 3. [训练命令](#3-训练命令)
 4. [测试与预测](#4-测试与预测)
-5. [特征对比](#5-特征对比)
-6. [故障排除](#6-故障排除)
+5. [导出模型](#5-导出模型)
+6. [特征对比](#6-特征对比)
+7. [故障排除](#7-故障排除)
 
 ---
 
-## 0. 生成MIDI数据
+## 0. MIDI数据生成
 
-### 0.1 生成单和弦MIDI（推荐，支持丰富和弦类型与配器）
+### 0.1 生成单和弦MIDI文件（推荐第一步）
 ```bash
-python generate_single_chords.py \
-    -r 2 \
-    -o single_chords
+python generate_single_chords.py -r 10 -o single_chords
 ```
-- `-r 2` 表示每种和弦生成2组不同配器/声部排列（可根据需要调整）
-- `-o single_chords` 指定输出目录
 
-生成后目录结构示例：
+**参数说明**：
+- `-r 10`：每种和弦生成10个重复（带音符变化和声部对调）
+- `-o single_chords`：输出到single_chords目录
+
+**生成数据说明**：
+- **根音数量**：7个（C, D, E, F, G, A, B）
+- **和弦类型**：11种（major, minor, dim, aug, sus2, sus4, maj7, min7, dom7, dim7, hdim7）
+- **配器方案**：8种（satb, sat, atb, sa, piano, piano_bass, strings, full）
+- **总和弦组合**：7 × 11 × 8 = **616种**
+- **文件夹总数**（重复10次）：616 × 10 = **6160个**
+- **实际生成**：✅ 已生成6160个MIDI文件夹，6160个WAV文件（约6.1GB）
+
+**生成目录结构示例**：
 ```
 single_chords/
-  ├── C_major_satb_0001/
+  ├── C_major_satb_01/          # C大三和弦，SATB配置，第1次重复
   │   ├── Soprano.mid
   │   ├── Alto.mid
   │   ├── Tenor.mid
   │   └── Bass.mid
-  ├── D_min7_piano_0001/
+  ├── C_major_satb_02/          # 相同和弦，第2次重复（不同声部排列）
+  │   ├── Soprano.mid
+  │   ├── Alto.mid
+  │   ├── Tenor.mid
+  │   └── Bass.mid
+  ├── D_min7_piano_01/          # D小七和弦，钢琴配置
   │   ├── Piano_RH.mid
   │   └── Piano_LH.mid
-  └── ...
+  └── ... (共6160个文件夹)
 ```
 
-### 0.2 批量渲染MIDI为WAV（Reaper/Lua脚本）
-1. 打开 Reaper，准备好与 `generate_single_chords.py` 输出一致的轨道模板。
-2. 运行 `midi_render.lua`，自动批量渲染所有MIDI为WAV，输出到 `single_chords_output/`。
+**文件夹命名规则**：`根音_和弦类型_配器方案_序号`
+
+**配器方案详细说明**：
+| 方案 | 声部组合 | 说明 |
+|------|---------|------|
+| satb | Soprano + Alto + Tenor + Bass | 四部合唱（完整） |
+| sat | Soprano + Alto + Tenor | 三部合唱（无低音） |
+| atb | Alto + Tenor + Bass | 三部合唱（无高音） |
+| sa | Soprano + Alto | 二部合唱 |
+| piano | Piano_RH + Piano_LH | 钢琴左右手 |
+| piano_bass | Piano_RH + Piano_LH + Bass | 钢琴+低音 |
+| strings | Strings + Bass | 弦乐+低音 |
+| full | Soprano + Alto + Tenor + Bass + Strings | 完整编制 |
+
+**音乐性变化机制**：
+- ✅ 智能音符省略（根据和弦重要性）
+- ✅ 音符加倍（根音、五音优先）
+- ✅ 八度调整（适应声部音域）
+- ✅ 声部对调（S-A对调、T-B对调、完全重排等）
+- ✅ 随机力度和时间微调（增加表现力）
+
+### 0.2 批量渲染MIDI为WAV（使用Reaper + Lua脚本）
+
+1. 打开Reaper DAW
+2. 加载与配器方案匹配的轨道模板（至少8轨）
+3. 运行`midi_render.lua`脚本
+4. 脚本会自动渲染混音为WAV并输出到`single_chords_output/`
+
+**预期WAV文件数量**：与MIDI文件夹数相同（如重复10次则6160个WAV）
 
 ---
 
@@ -138,34 +179,36 @@ if invalid:
 python train_chord_recognition.py \
     --data_dir single_chords_output \
     --task root \
-    --epochs 30 \
+    --epochs 100 \
     --batch_size 32 \
     --lr 0.001 \
     --output_dir models_root_stft
 ```
 
 **预期效果**:
-- 训练样本: ~1568
-- 验证样本: ~392
+- 训练样本: ~4928 (80%分割)
+- 验证样本: ~1232 (20%分割)
 - 类别数: 7 (A, B, C, D, E, F, G)
 - 预期准确率: 85-95%
 
-### 3.2 训练和弦类型识别（Chord - 14 类）
+### 3.2 训练和弦类型识别（Chord - 11 类）
 ```bash
 python train_chord_recognition.py \
     --data_dir single_chords_output \
     --task chord \
-    --epochs 500 \
+    --epochs 300 \
     --batch_size 32 \
     --lr 0.001 \
     --output_dir models_chord_stft
 ```
 
 **预期效果**:
-- 类别数: 14 (major, minor, dim, aug, dom7, maj7, min7, dim7, hdi, sus2, sus4, 6, 9, add9)
+- 训练样本: ~4928
+- 验证样本: ~1232
+- 类别数: 11 (aug, dim, dim7, dom7, hdim7, maj7, major, min7, minor, sus2, sus4)
 - 预期准确率: 75-85%
 
-### 3.3 训练完整和弦识别（Full - 98 类，最难）
+### 3.3 训练完整和弦识别（Full - 77 类，最难）
 ```bash
 python train_chord_recognition.py \
     --data_dir single_chords_output \
@@ -177,7 +220,9 @@ python train_chord_recognition.py \
 ```
 
 **预期效果**:
-- 类别数: 98 (7 roots × 14 chord types)
+- 训练样本: ~4928
+- 验证样本: ~1232
+- 类别数: 77 (7 roots × 11 chord types)
 - 预期准确率: 60-75%
 - 需要更多 epochs 和更小学习率
 
@@ -204,15 +249,15 @@ python train_chord_cqt.py \
 ### 4.1 单文件预测（STFT）
 ```bash
 python predict_chord.py \
-    --wav_file single_chords_output/C_maj_satb_0001.wav \
-    --model models_stft/chord_model_root.pth \
-    --mappings models_stft/label_mappings_root.json
+    --wav_file single_chords_output/C_major_satb_01.wav \
+    --model models_root_stft/chord_model_root.pth \
+    --mappings models_root_stft/label_mappings_root.json
 ```
 
 ### 4.2 单文件预测（CQT）
 ```bash
 python predict_chord_cqt.py \
-    --wav_file single_chords_output/C_maj_satb_0001.wav \
+    --wav_file single_chords_output/C_major_satb_01.wav \
     --model models_cqt/chord_model_cqt_root.pth \
     --mappings models_cqt/label_mappings_root.json
 ```
@@ -220,8 +265,9 @@ python predict_chord_cqt.py \
 ### 4.3 批量测试模型
 ```bash
 python test_model.py \
-    --model_path models_stft/chord_model_root.pth \
     --data_dir single_chords_output \
+    --model models_root_stft/chord_model_root.pth \
+    --mappings models_root_stft/label_mappings_root.json \
     --output_dir test_results
 ```
 
@@ -233,12 +279,57 @@ python test_model.py \
 
 ---
 
-## 5. 特征对比
+## 5. 导出模型（用于JUCE插件）
 
-### 5.1 可视化对比 STFT vs Mel vs CQT
+### 5.1 导出所有模型（推荐）
+```bash
+python export_models_for_juce.py --export_all
+```
+
+**输出文件**：
+- `root_model.pt` - 根音识别模型（7类）
+- `chord_model.pt` - 和弦类型识别模型（11类）
+- `full_model.pt` - 完整和弦识别模型（77类）
+
+**模型输入格式**：
+- 输入形状：`[1, 1, 1025, T]`（批次大小，通道数，频率bin数，时间帧数）
+- 数据类型：`torch.float32`
+- 频谱类型：原始STFT频谱（20*log10转换为dB）
+
+### 5.2 单独导出模型
+```bash
+# 导出根音识别模型
+python export_models_for_juce.py \
+    --model_type root \
+    --model_path models_full_stft/chord_model_full_20251028_113548.pth \
+    --output_path root_model.pt
+
+# 导出和弦类型识别模型
+python export_models_for_juce.py \
+    --model_type chord \
+    --model_path models_chord_stft/chord_model_chord_20251028_114129.pth \
+    --output_path chord_model.pt
+
+# 导出完整和弦识别模型
+python export_models_for_juce.py \
+    --model_type full \
+    --model_path models_full_stft/chord_model_full_20251028_114225.pth \
+    --output_path full_model.pt
+```
+
+**注意事项**：
+- 导出的模型为TorchScript格式（.pt），可在JUCE插件中通过LibTorch加载
+- 确保模型路径正确指向训练好的.pth文件
+- 导出后的模型应放置在JUCE插件的Resources目录中
+
+---
+
+## 6. 特征对比
+
+### 6.1 可视化对比 STFT vs Mel vs CQT
 ```bash
 python compare_features.py \
-    --wav_file single_chords_output/C_maj_satb_0001.wav \
+    --wav_file single_chords_output/C_major_satb_01.wav \
     --output feature_comparison.png
 ```
 
@@ -247,10 +338,10 @@ python compare_features.py \
 open feature_comparison.png
 ```
 
-### 5.2 自定义参数对比
+### 6.2 自定义参数对比
 ```bash
 python compare_features.py \
-    --wav_file single_chords_output/G_dom_satb_0001.wav \
+    --wav_file single_chords_output/G_dom7_satb_01.wav \
     --n_fft 4096 \
     --n_mels 256 \
     --n_bins 96 \
@@ -259,9 +350,9 @@ python compare_features.py \
 
 ---
 
-## 6. 故障排除
+## 7. 故障排除
 
-### 6.1 如果提示 "FFmpeg not found"
+### 7.1 如果提示 "FFmpeg not found"
 ```bash
 # 安装 FFmpeg
 conda install -c conda-forge ffmpeg
@@ -271,7 +362,7 @@ which ffmpeg
 ffmpeg -version | head -1
 ```
 
-### 6.2 如果提示 "MPS not available"
+### 7.2 如果提示 "MPS not available"
 ```bash
 # 检查 MPS 支持
 python -c "
@@ -289,7 +380,7 @@ python train_chord_recognition.py \
     --output_dir models_stft
 ```
 
-### 6.3 如果内存不足（OOM）
+### 7.3 如果内存不足（OOM）
 ```bash
 # 减小 batch size
 python train_chord_recognition.py \
@@ -300,7 +391,7 @@ python train_chord_recognition.py \
     --output_dir models_stft
 ```
 
-### 6.4 如果训练太慢
+### 7.4 如果训练太慢
 ```bash
 # 减少 epochs 快速验证
 python train_chord_recognition.py \
@@ -310,13 +401,13 @@ python train_chord_recognition.py \
     --output_dir models_test
 ```
 
-### 6.5 清理旧模型
+### 7.5 清理旧模型
 ```bash
 # 删除旧训练结果
-rm -rf models_stft models_cqt test_results
+rm -rf models_root_stft models_chord_stft models_full_stft models_cqt test_results
 
 # 重新创建目录
-mkdir -p models_stft models_cqt test_results
+mkdir -p models_root_stft models_chord_stft models_full_stft models_cqt test_results
 ```
 
 ---
@@ -340,7 +431,9 @@ done
 
 ### 查看模型文件
 ```bash
-ls -lh models_stft/
+ls -lh models_root_stft/
+ls -lh models_chord_stft/
+ls -lh models_full_stft/
 ```
 
 ---
@@ -362,7 +455,7 @@ python train_chord_recognition.py \
 
 # 3. 测试预测
 python predict_chord.py \
-    --wav_file single_chords_output/C_maj_satb_0001.wav \
+    --wav_file single_chords_output/C_major_satb_01.wav \
     --model models_test/chord_model_root.pth \
     --mappings models_test/label_mappings_root.json
 ```
@@ -384,11 +477,20 @@ python train_chord_cqt.py \
     --output_dir models_cqt
 
 # 3. 对比测试
-python test_model.py --model_path models_stft/chord_model_root.pth --data_dir single_chords_output
-python test_model.py --model_path models_cqt/chord_model_cqt_root.pth --data_dir single_chords_output
+python test_model.py \
+    --data_dir single_chords_output \
+    --model models_root_stft/chord_model_root.pth \
+    --mappings models_root_stft/label_mappings_root.json \
+    --output_dir test_results_stft
+
+python test_model.py \
+    --data_dir single_chords_output \
+    --model models_cqt/chord_model_cqt_root.pth \
+    --mappings models_cqt/label_mappings_root.json \
+    --output_dir test_results_cqt
 
 # 4. 特征对比
-python compare_features.py --wav_file single_chords_output/C_maj_satb_0001.wav --output comparison.png
+python compare_features.py --wav_file single_chords_output/C_major_satb_01.wav --output comparison.png
 open comparison.png
 ```
 
@@ -439,18 +541,41 @@ open comparison.png
 Training Completed! Best Val Acc: 95.23%
 ============================================================
 
-✓ 标签映射保存到: models_stft/label_mappings_root.json
-✓ 模型保存到: models_stft/chord_model_root.pth
-✓ 训练历史保存到: models_stft/training_history_root.png
+✓ 标签映射保存到: models_root_stft/label_mappings_root.json
+✓ 模型保存到: models_root_stft/chord_model_root_20251103_123456.pth
+✓ 训练历史保存到: models_root_stft/training_history_root.png
 
 最佳验证准确率: 95.23%
+训练样本数: 4928
+验证样本数: 1232
 ```
 
 ---
 
-**最后更新**: 2025-10-27  
+**最后更新**: 2025-11-03  
 **作者**: GitHub Copilot  
 **项目**: AutoChord 和弦识别系统
+
+---
+
+## 📊 实际数据统计
+
+### MIDI生成统计
+- **文件夹总数**: 6160个
+- **和弦类型**: 11种（aug, dim, dim7, dom7, hdim7, maj7, major, min7, minor, sus2, sus4）
+- **每种和弦**: 560个样本（7根音 × 8配器 × 10重复）
+
+### WAV渲染统计
+- **WAV文件总数**: 6160个
+- **总大小**: 6.1GB
+- **采样率**: 48000 Hz
+- **声道**: 单声道（Mono）
+- **文件命名**: `根音_和弦类型_配器_序号.wav`（如 `C_major_satb_01.wav`）
+
+### 训练数据分割
+- **训练集**: 4928个样本（80%）
+- **验证集**: 1232个样本（20%）
+- **类别分布**: 每类样本数量均衡
 EOF
 
 echo "✅ 命令集合已保存到 RUN_COMMANDS.md"
