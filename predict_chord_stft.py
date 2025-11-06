@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 import torchaudio
 import torchaudio.transforms as T
-from train_chord_recognition import ChordCNN, LabelExtractor
+from train_chord_stft import ChordCNN, LabelExtractor
 
 
 def load_model(model_path: str, num_classes: int, device: str = 'cuda'):

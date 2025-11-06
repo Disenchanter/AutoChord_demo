@@ -50,12 +50,14 @@ single_chords/
 test_results*/
 legacy/
 Backups/
+build/
+analysis_test/
 
 # System
 .DS_Store
 Thumbs.db
 
-libtorch/
+libtorch_*/
 JUCE/
 
 # Reaper/DAW

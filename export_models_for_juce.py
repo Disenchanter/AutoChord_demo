@@ -8,7 +8,7 @@ import torch
 import argparse
 from pathlib import Path
 import json
-from train_chord_recognition import ChordCNN
+from train_chord_stft import ChordCNN
 
 def export_model(model_path, output_path, num_classes, input_shape=(1, 1, 1025, 173)):
     """
@@ -51,6 +51,8 @@ def main():
     parser = argparse.ArgumentParser(description='导出PyTorch模型为TorchScript')
     parser.add_argument('--export_all', action='store_true',
                         help='导出所有模型（root, chord, full）')
+    parser.add_argument('--output_dir', type=str, default='exported_models',
+                        help='导出模型的输出目录（默认: exported_models）')
     
     args = parser.parse_args()
     
@@ -59,14 +61,23 @@ def main():
         print("导出所有模型为TorchScript格式")
         print("="*60 + "\n")
         
+        # 创建输出目录
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(exist_ok=True)
+        print(f"输出目录: {output_dir.absolute()}\n")
+        
         # 导出Root模型
         root_dir = Path('models_root_stft')
         if root_dir.exists():
             models = sorted(list(root_dir.glob('chord_model_root_*.pth')))
             if models:
                 latest_model = models[-1]
-                output_path = root_dir / 'root_model.pt'
+                output_path = output_dir / 'root_model.pt'
                 export_model(latest_model, output_path, num_classes=7)
+            else:
+                print(f"⚠ 未找到Root模型文件: {root_dir}/chord_model_root_*.pth\n")
+        else:
+            print(f"⚠ Root模型目录不存在: {root_dir}\n")
         
         # 导出Chord模型
         chord_dir = Path('models_chord_stft')
@@ -74,8 +85,12 @@ def main():
             models = sorted(list(chord_dir.glob('chord_model_chord_*.pth')))
             if models:
                 latest_model = models[-1]
-                output_path = chord_dir / 'chord_model.pt'
+                output_path = output_dir / 'chord_model.pt'
                 export_model(latest_model, output_path, num_classes=11)
+            else:
+                print(f"⚠ 未找到Chord模型文件: {chord_dir}/chord_model_chord_*.pth\n")
+        else:
+            print(f"⚠ Chord模型目录不存在: {chord_dir}\n")
         
         # 导出Full模型
         full_dir = Path('models_full_stft')
@@ -83,16 +98,16 @@ def main():
             models = sorted(list(full_dir.glob('chord_model_full_*.pth')))
             if models:
                 latest_model = models[-1]
-                output_path = full_dir / 'full_model.pt'
+                output_path = output_dir / 'full_model.pt'
                 export_model(latest_model, output_path, num_classes=77)
+            else:
+                print(f"⚠ 未找到Full模型文件: {full_dir}/chord_model_full_*.pth\n")
+        else:
+            print(f"⚠ Full模型目录不存在: {full_dir}\n")
         
         print("="*60)
-        print("所有模型导出完成！")
+        print(f"所有模型已导出到: {output_dir.absolute()}")
         print("="*60)
-        print("\n现在可以编译JUCE插件:")
-        print("  cd AutoChordPlugin/build")
-        print("  cmake ..")
-        print("  cmake --build . --config Release")
     else:
         print("使用 --export_all 导出所有模型")
 

@@ -154,7 +154,7 @@ print(f'总文件数: {len(wav_files)}')
 print(f'总大小: {sum(f.stat().st_size for f in wav_files) / 1024**2:.2f} MB')
 
 # 检查文件名格式
-from train_chord_recognition import LabelExtractor
+from train_chord_stft import LabelExtractor
 valid = 0
 invalid = []
 for wav_file in wav_files[:50]:  # 检查前50个
@@ -176,7 +176,7 @@ if invalid:
 
 ### 3.1 训练根音识别（Root - 7 类，最简单）⭐ 推荐先运行
 ```bash
-python train_chord_recognition.py \
+python train_chord_stft.py \
     --data_dir single_chords_output \
     --task root \
     --epochs 100 \
@@ -193,7 +193,7 @@ python train_chord_recognition.py \
 
 ### 3.2 训练和弦类型识别（Chord - 11 类）
 ```bash
-python train_chord_recognition.py \
+python train_chord_stft.py \
     --data_dir single_chords_output \
     --task chord \
     --epochs 300 \
@@ -210,7 +210,7 @@ python train_chord_recognition.py \
 
 ### 3.3 训练完整和弦识别（Full - 77 类，最难）
 ```bash
-python train_chord_recognition.py \
+python train_chord_stft.py \
     --data_dir single_chords_output \
     --task full \
     --epochs 1000 \
@@ -248,7 +248,7 @@ python train_chord_cqt.py \
 
 ### 4.1 单文件预测（STFT）
 ```bash
-python predict_chord.py \
+python predict_chord_stft.py \
     --wav_file single_chords_output/C_major_satb_01.wav \
     --model models_root_stft/chord_model_root.pth \
     --mappings models_root_stft/label_mappings_root.json
@@ -372,7 +372,7 @@ print(f'MPS built: {torch.backends.mps.is_built()}')
 "
 
 # 如果不支持，使用 CPU
-python train_chord_recognition.py \
+python train_chord_stft.py \
     --data_dir single_chords_output \
     --task root \
     --epochs 30 \
@@ -383,7 +383,7 @@ python train_chord_recognition.py \
 ### 7.3 如果内存不足（OOM）
 ```bash
 # 减小 batch size
-python train_chord_recognition.py \
+python train_chord_stft.py \
     --data_dir single_chords_output \
     --task root \
     --batch_size 16 \
@@ -394,7 +394,7 @@ python train_chord_recognition.py \
 ### 7.4 如果训练太慢
 ```bash
 # 减少 epochs 快速验证
-python train_chord_recognition.py \
+python train_chord_stft.py \
     --data_dir single_chords_output \
     --task root \
     --epochs 5 \
@@ -447,7 +447,7 @@ conda activate librosa
 python -c "import torch, torchaudio; print('✓ 环境正常')"
 
 # 2. 快速训练（5 epochs）
-python train_chord_recognition.py \
+python train_chord_stft.py \
     --data_dir single_chords_output \
     --task root \
     --epochs 5 \
@@ -463,7 +463,7 @@ python predict_chord.py \
 ### 完整训练流程（30-60 分钟）
 ```bash
 # 1. STFT 训练（推荐）
-python train_chord_recognition.py \
+python train_chord_stft.py \
     --data_dir single_chords_output \
     --task root \
     --epochs 30 \
@@ -498,7 +498,7 @@ open comparison.png
 
 ## 📝 命令参数说明
 
-### train_chord_recognition.py
+### train_chord_stft.py
 - `--data_dir`: WAV 文件目录
 - `--task`: 任务类型 (root|chord|full)
 - `--epochs`: 训练轮数 (推荐 30-100)

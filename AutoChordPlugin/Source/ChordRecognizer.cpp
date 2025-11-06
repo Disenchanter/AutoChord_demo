@@ -102,28 +102,80 @@ void ChordRecognizer::processAudioBuffer(const juce::AudioBuffer<float>& buffer,
     auto numChannels = buffer.getNumChannels();
     auto numSamples = buffer.getNumSamples();
     
-    for (int sample = 0; sample < numSamples; ++sample)
+    // 如果采样率不匹配，需要重采样
+    bool needsResampling = std::abs(sampleRate - SAMPLE_RATE) > 1.0;
+    
+    if (needsResampling)
     {
-        float mixedSample = 0.0f;
-        for (int channel = 0; channel < numChannels; ++channel)
-        {
-            mixedSample += buffer.getSample(channel, sample);
-        }
-        mixedSample /= static_cast<float>(numChannels);
+        // 创建重采样器（使用线性插值）
+        double ratio = SAMPLE_RATE / sampleRate;
+        int resampledSize = static_cast<int>(numSamples * ratio);
         
-        // 写入循环缓冲区
-        audioBuffer_[writePosition_] = mixedSample;
-        writePosition_ = (writePosition_ + 1) % bufferSize_;
+        for (int sample = 0; sample < resampledSize; ++sample)
+        {
+            // 计算源样本位置
+            double srcPos = sample / ratio;
+            int srcIndex = static_cast<int>(srcPos);
+            double frac = srcPos - srcIndex;
+            
+            if (srcIndex + 1 < numSamples)
+            {
+                // 混合多声道并线性插值
+                float mixedSample1 = 0.0f;
+                float mixedSample2 = 0.0f;
+                for (int channel = 0; channel < numChannels; ++channel)
+                {
+                    mixedSample1 += buffer.getSample(channel, srcIndex);
+                    mixedSample2 += buffer.getSample(channel, srcIndex + 1);
+                }
+                mixedSample1 /= static_cast<float>(numChannels);
+                mixedSample2 /= static_cast<float>(numChannels);
+                
+                // 线性插值
+                float mixedSample = mixedSample1 * (1.0f - frac) + mixedSample2 * frac;
+                
+                // 写入循环缓冲区
+                audioBuffer_[writePosition_] = mixedSample;
+                writePosition_ = (writePosition_ + 1) % bufferSize_;
+            }
+        }
+        
+        // 每隔一段时间进行推理
+        static int sampleCounter = 0;
+        sampleCounter += resampledSize;
+        
+        if (sampleCounter >= HOP_LENGTH)
+        {
+            sampleCounter = 0;
+            runInference();
+        }
     }
-    
-    // 每隔一段时间进行推理（例如每512个样本）
-    static int sampleCounter = 0;
-    sampleCounter += numSamples;
-    
-    if (sampleCounter >= HOP_LENGTH)
+    else
     {
-        sampleCounter = 0;
-        runInference();
+        // 采样率匹配，直接处理
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            float mixedSample = 0.0f;
+            for (int channel = 0; channel < numChannels; ++channel)
+            {
+                mixedSample += buffer.getSample(channel, sample);
+            }
+            mixedSample /= static_cast<float>(numChannels);
+            
+            // 写入循环缓冲区
+            audioBuffer_[writePosition_] = mixedSample;
+            writePosition_ = (writePosition_ + 1) % bufferSize_;
+        }
+        
+        // 每隔一段时间进行推理
+        static int sampleCounter = 0;
+        sampleCounter += numSamples;
+        
+        if (sampleCounter >= HOP_LENGTH)
+        {
+            sampleCounter = 0;
+            runInference();
+        }
     }
 }
 

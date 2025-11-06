@@ -9,19 +9,10 @@ from pathlib import Path
 import numpy as np
 import torch
 import librosa
-from train_chord_cqt import ChordCNN_CQT, LabelExtractor
+# 复用 STFT 版本的加载与预测逻辑，只替换特征提取为 CQT
+from predict_chord_stft import load_model, predict
+from train_chord_stft import LabelExtractor
 
-
-def load_model(model_path: str, num_classes: int, n_bins: int, device: str = 'cuda'):
-    """加载训练好的模型"""
-    model = ChordCNN_CQT(num_classes=num_classes, n_bins=n_bins)
-    
-    checkpoint = torch.load(model_path, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.to(device)
-    model.eval()
-    
-    return model
 
 
 def preprocess_audio_cqt(
@@ -64,16 +55,7 @@ def preprocess_audio_cqt(
     return cqt_tensor
 
 
-def predict(model, input_tensor, device: str = 'cuda'):
-    """预测"""
-    input_tensor = input_tensor.to(device)
-    
-    with torch.no_grad():
-        output = model(input_tensor)
-        probabilities = torch.nn.functional.softmax(output, dim=1)
-        confidence, predicted_idx = probabilities.max(1)
-    
-    return predicted_idx.item(), confidence.item()
+# 使用从 predict_chord 导入的 `load_model` 和 `predict`
 
 
 def main():
@@ -90,7 +72,7 @@ def main():
     args = parser.parse_args()
     
     # 检测设备
-    device = args.device if torch.cuda.is_available() else 'cpu'
+    device = args.device if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
     
     # 加载标签映射
     with open(args.mappings, 'r') as f:
@@ -110,10 +92,10 @@ def main():
     else:
         idx_to_label = {v: k for k, v in mappings['chord_to_idx'].items()}
     
-    # 加载模型
+    # 加载模型（复用 STFT 版本的 load_model）
     print(f"加载模型: {args.model}")
     print(f"特征类型: CQT ({n_bins} bins, {bins_per_octave} bins/octave)")
-    model = load_model(args.model, num_classes, n_bins, device)
+    model = load_model(args.model, num_classes, device)
     
     # 预处理音频
     print(f"处理音频: {args.wav_file}")

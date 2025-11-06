@@ -145,70 +145,61 @@ void AutoChordAudioProcessor::setStateInformation(const void* data, int sizeInBy
 
 juce::File AutoChordAudioProcessor::getModelDirectory()
 {
-    // 获取插件所在目录的父目录
-    auto pluginDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-    
-    // 尝试多个可能的路径
-    std::vector<juce::String> possiblePaths = {
-        pluginDir.getFullPathName(),
-        pluginDir.getParentDirectory().getFullPathName(),
-        "D:\\Share_D\\Internship\\AutoChord_demo"  // 开发路径
-    };
-    
-    for (const auto& path : possiblePaths)
-    {
-        juce::File dir(path);
-        if (dir.exists())
-            return dir;
-    }
-    
-    return juce::File();
+    // 获取插件可执行文件所在目录（编译时模型已复制到这里）
+    return juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
 }
 
 void AutoChordAudioProcessor::loadModels()
 {
-    auto baseDir = getModelDirectory();
+    auto modelDir = getModelDirectory();
     
-    if (!baseDir.exists())
+    if (!modelDir.exists())
     {
-        DBG("Model directory not found");
+        DBG("Model directory not found: " + modelDir.getFullPathName());
         return;
     }
     
-    // 加载Root模型
-    auto rootModelDir = baseDir.getChildFile("models_root_stft");
-    if (rootModelDir.exists())
+    DBG("Loading models from: " + modelDir.getFullPathName());
+    
+    // 加载编译时复制的模型文件
+    auto rootModel = modelDir.getChildFile("root_model.pt");
+    auto chordModel = modelDir.getChildFile("chord_model.pt");
+    auto fullModel = modelDir.getChildFile("full_model.pt");
+    
+    // 加载Root模型（7类根音识别）
+    if (rootModel.existsAsFile())
     {
-        auto models = rootModelDir.findChildFiles(juce::File::findFiles, false, "*.pt");
-        if (!models.isEmpty())
-        {
-            bool success = chordRecognizer_.loadModel(ChordRecognizer::ModelType::ROOT, models[0]);
-            DBG("Root model loaded: " + juce::String(success ? "success" : "failed"));
-        }
+        bool success = chordRecognizer_.loadModel(ChordRecognizer::ModelType::ROOT, rootModel);
+        DBG("Root model loaded: " + juce::String(success ? "✓ SUCCESS" : "✗ FAILED"));
+    }
+    else
+    {
+        DBG("Root model not found: " + rootModel.getFullPathName());
     }
     
-    // 加载Chord模型
-    auto chordModelDir = baseDir.getChildFile("models_chord_stft");
-    if (chordModelDir.exists())
+    // 加载Chord模型（11类和弦类型识别）
+    if (chordModel.existsAsFile())
     {
-        auto models = chordModelDir.findChildFiles(juce::File::findFiles, false, "*.pt");
-        if (!models.isEmpty())
-        {
-            bool success = chordRecognizer_.loadModel(ChordRecognizer::ModelType::CHORD, models[0]);
-            DBG("Chord model loaded: " + juce::String(success ? "success" : "failed"));
-        }
+        bool success = chordRecognizer_.loadModel(ChordRecognizer::ModelType::CHORD, chordModel);
+        DBG("Chord model loaded: " + juce::String(success ? "✓ SUCCESS" : "✗ FAILED"));
+    }
+    else
+    {
+        DBG("Chord model not found: " + chordModel.getFullPathName());
     }
     
-    // 加载Full模型
-    auto fullModelDir = baseDir.getChildFile("models_full_stft");
-    if (fullModelDir.exists())
+    // 加载Full模型（77类完整和弦识别）
+    if (fullModel.existsAsFile())
     {
-        auto models = fullModelDir.findChildFiles(juce::File::findFiles, false, "*.pt");
-        if (!models.isEmpty())
-        {
-            bool success = chordRecognizer_.loadModel(ChordRecognizer::ModelType::FULL, models[0]);
-            DBG("Full model loaded: " + juce::String(success ? "success" : "failed"));
-        }
+        bool success = chordRecognizer_.loadModel(ChordRecognizer::ModelType::FULL, fullModel);
+        DBG("Full model loaded: " + juce::String(success ? "✓ SUCCESS" : "✗ FAILED"));
+        
+        // 默认使用Full模型
+        chordRecognizer_.setModelType(ChordRecognizer::ModelType::FULL);
+    }
+    else
+    {
+        DBG("Full model not found: " + fullModel.getFullPathName());
     }
 }
 

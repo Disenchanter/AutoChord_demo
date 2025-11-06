@@ -1,6 +1,7 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include <juce_core/juce_core.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <torch/script.h>
 #include <torch/torch.h>
 #include <vector>
@@ -43,7 +44,7 @@ private:
     // STFT参数（与训练代码保持一致 - 使用原始频谱）
     static constexpr int FFT_SIZE = 2048;
     static constexpr int HOP_LENGTH = 512;
-    static constexpr int SAMPLE_RATE = 44100;
+    static constexpr int SAMPLE_RATE = 22050;  // 与训练时一致！
     static constexpr float BUFFER_DURATION = 2.0f; // 2秒音频缓冲
     static constexpr int N_FFT_BINS = FFT_SIZE / 2 + 1; // 1025个频率bins
 

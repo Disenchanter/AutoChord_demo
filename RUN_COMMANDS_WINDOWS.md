@@ -133,7 +133,7 @@ Get-ChildItem single_chords_output\*.wav | Select-Object -First 10 | Select-Obje
 
 ### 2.3 验证文件完整性
 ```powershell
-python -c "from pathlib import Path; wav_dir = Path('single_chords_output'); wav_files = list(wav_dir.glob('*.wav')); print(f'总文件数: {len(wav_files)}'); print(f'总大小: {sum(f.stat().st_size for f in wav_files) / 1024**2:.2f} MB'); from train_chord_recognition import LabelExtractor; valid = 0; invalid = []; [valid := valid + 1 if not invalid.append(wav_file.name) and LabelExtractor.parse_filename(wav_file.name) else invalid.append(wav_file.name) for wav_file in wav_files[:50]]; print(f'文件名格式检查: {valid}/50 有效'); print(f'无效文件: {invalid[:5]}') if invalid else None"
+python -c "from pathlib import Path; wav_dir = Path('single_chords_output'); wav_files = list(wav_dir.glob('*.wav')); print(f'总文件数: {len(wav_files)}'); print(f'总大小: {sum(f.stat().st_size for f in wav_files) / 1024**2:.2f} MB'); from train_chord_stft import LabelExtractor; valid = 0; invalid = []; [valid := valid + 1 if not invalid.append(wav_file.name) and LabelExtractor.parse_filename(wav_file.name) else invalid.append(wav_file.name) for wav_file in wav_files[:50]]; print(f'文件名格式检查: {valid}/50 有效'); print(f'无效文件: {invalid[:5]}') if invalid else None"
 ```
 
 ---
@@ -142,7 +142,7 @@ python -c "from pathlib import Path; wav_dir = Path('single_chords_output'); wav
 
 ### 3.1 训练根音识别（Root - 7 类，最简单）⭐ 推荐先运行
 ```powershell
-python train_chord_recognition.py `
+python train_chord_stft.py `
     --data_dir single_chords_output `
     --task root `
     --epochs 100 `
@@ -161,7 +161,7 @@ python train_chord_recognition.py `
 
 ### 3.2 训练和弦类型识别（Chord - 11 类）
 ```powershell
-python train_chord_recognition.py `
+python train_chord_stft.py `
     --data_dir single_chords_output `
     --task chord `
     --epochs 300 `
@@ -180,7 +180,7 @@ python train_chord_recognition.py `
 
 ### 3.3 训练完整和弦识别（Full - 77 类，最难）
 ```powershell
-python train_chord_recognition.py `
+python train_chord_stft.py `
     --data_dir single_chords_output `
     --task full `
     --epochs 500 `
@@ -220,7 +220,7 @@ python train_chord_cqt.py `
 
 ### 4.1 单文件预测（STFT）
 ```powershell
-python predict_chord.py `
+python predict_chord_stft.py `
     --wav_file single_chords_output\C_major_satb_01.wav `
     --model models_stft\chord_model_root.pth `
     --mappings models_stft\label_mappings_root.json
@@ -237,7 +237,7 @@ python predict_chord_cqt.py `
 ### 4.3 批量测试模型
 ```powershell
 python test_model.py `
-    --model_path models_stft\chord_model_root.pth `
+    --model models_full_stft\chord_model_full_20251028_113548.pth `
     --data_dir single_chords_output `
     --output_dir test_results
 ```
@@ -336,7 +336,7 @@ ffmpeg -version
 python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}') if torch.cuda.is_available() else print('CUDA not built')"
 
 # 如果不支持，使用 CPU
-python train_chord_recognition.py `
+python train_chord_stft.py `
     --data_dir single_chords_output `
     --task root `
     --epochs 30 `
@@ -347,7 +347,7 @@ python train_chord_recognition.py `
 ### 6.3 如果内存不足（OOM）
 ```powershell
 # 减小 batch size
-python train_chord_recognition.py `
+python train_chord_stft.py `
     --data_dir single_chords_output `
     --task root `
     --batch_size 16 `
@@ -358,7 +358,7 @@ python train_chord_recognition.py `
 ### 6.4 如果训练太慢
 ```powershell
 # 减少 epochs 快速验证
-python train_chord_recognition.py `
+python train_chord_stft.py `
     --data_dir single_chords_output `
     --task root `
     --epochs 5 `
@@ -409,7 +409,7 @@ conda activate librosa
 python -c "import torch, torchaudio; print('✓ 环境正常')"
 
 # 2. 快速训练（5 epochs）
-python train_chord_recognition.py `
+python train_chord_stft.py `
     --data_dir single_chords_output `
     --task root `
     --epochs 5 `
@@ -425,7 +425,7 @@ python predict_chord.py `
 ### 完整训练流程（30-60 分钟）
 ```powershell
 # 1. STFT 训练（推荐）
-python train_chord_recognition.py `
+python train_chord_stft.py `
     --data_dir single_chords_output `
     --task root `
     --epochs 30 `
@@ -451,7 +451,7 @@ Start-Process comparison.png
 
 ## 📝 命令参数说明
 
-### train_chord_recognition.py
+### train_chord_stft.py
 - `--data_dir`: WAV 文件目录
 - `--task`: 任务类型 (root|chord|full)
 - `--epochs`: 训练轮数 (推荐 30-100)
