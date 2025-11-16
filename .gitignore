@@ -1,3 +1,5 @@
+input_midi/
+output_wav/
 # Python
 __pycache__/
 *.py[cod]

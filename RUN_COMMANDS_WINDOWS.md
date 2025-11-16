@@ -435,7 +435,7 @@ python train_chord_stft.py `
 python train_chord_cqt.py `
     --data_dir single_chords_output `
     --task root `
-    --epochs 50 `
+    --epochs 100 `
     --output_dir models_cqt
 
 # 3. 对比测试
